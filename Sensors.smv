@@ -1,0 +1,22 @@
+MODULE Sensors(input)
+VAR
+  obstacleDetected : boolean;
+  clearObstacle : boolean;
+
+ASSIGN
+  init(obstacleDetected) := FALSE;
+  init(clearObstacle) := FALSE;
+
+  next(obstacleDetected) := 
+    case
+      input = detect_obstacle : TRUE;
+      input = clear_obstacle : FALSE;
+      TRUE : obstacleDetected;
+    esac;
+
+  next(clearObstacle) := 
+    case
+      input = clear_obstacle : TRUE;
+      input = detect_obstacle : FALSE;
+      TRUE : clearObstacle;
+    esac;

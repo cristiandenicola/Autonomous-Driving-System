@@ -1,0 +1,183 @@
+MODULE main
+VAR
+  state : {SystemCheck, Idle, Driving, ObstacleDetected, Stopped, TurningLeft, TurningRight, EmergencyBraking, ChangingLanes, CruiseControl, Reversing, Parked};
+  sensors : Sensors(input);
+  speedControl : SpeedControl(input);
+  maneuver : Maneuver(input);
+
+ASSIGN
+  init(state) := SystemCheck;
+
+  next(state) :=
+    case
+      -- Transizione da SystemCheck
+      state = SystemCheck : Idle;
+
+      -- Transizioni da Idle
+      state = Idle : {Driving, Parked};
+
+      -- Transizioni da Driving
+      state = Driving : 
+        case
+          sensors.obstacleDetected : ObstacleDetected;
+          input = stop : Stopped;
+          input = turn_left : TurningLeft;
+          input = turn_right : TurningRight;
+          input = emergency_brake : EmergencyBraking;
+          input = change_lane : ChangingLanes;
+          input = activate_cruise : CruiseControl;
+          input = reverse : Reversing;
+          input = park : Parked;
+          TRUE : Driving;
+        esac;
+
+      -- Transizioni da ObstacleDetected
+      state = ObstacleDetected : 
+        case
+          sensors.clearObstacle : Driving;
+          input = stop : Stopped;
+          input = emergency_brake : EmergencyBraking;
+          TRUE : ObstacleDetected;
+        esac;
+
+      -- Transizioni da Stopped
+      state = Stopped : 
+        case
+          input = resume : Driving;
+          input = park : Parked;
+          TRUE : Stopped;
+        esac;
+
+      -- Transizioni da TurningLeft
+      state = TurningLeft : 
+        case
+          maneuver.completeTurn : Driving;
+          sensors.obstacleDetected : ObstacleDetected;
+          input = emergency_brake : EmergencyBraking;
+          TRUE : TurningLeft;
+        esac;
+
+          -- Transizioni da TurningRight
+      state = TurningRight : 
+        case
+          maneuver.completeTurn : Driving;
+          sensors.obstacleDetected : ObstacleDetected;
+          input = emergency_brake : EmergencyBraking;
+          TRUE : TurningRight;
+        esac;
+
+      -- Transizioni da EmergencyBraking
+      state = EmergencyBraking : 
+        case
+          input = complete_braking : Stopped;
+          sensors.clearObstacle : ObstacleDetected;
+          TRUE : EmergencyBraking;
+        esac;
+
+      -- Transizioni da ChangingLanes
+      state = ChangingLanes : 
+        case
+          maneuver.completeLaneChange : Driving;
+          sensors.obstacleDetected : ObstacleDetected;
+          input = emergency_brake : EmergencyBraking;
+          TRUE : ChangingLanes;
+        esac;
+
+      -- Transizioni da CruiseControl
+      state = CruiseControl : 
+        case
+          input = deactivate_cruise : Driving;
+          sensors.obstacleDetected : ObstacleDetected;
+          input = emergency_brake : EmergencyBraking;
+          TRUE : CruiseControl;
+        esac;
+
+      -- Transizioni da Reversing
+      state = Reversing : 
+        case
+          input = complete_reverse : Driving;
+          sensors.obstacleDetected : ObstacleDetected;
+          input = emergency_brake : EmergencyBraking;
+          TRUE : Reversing;
+        esac;
+
+      -- Transizioni da Parked
+      state = Parked : 
+        case
+          input = start : Idle;
+          TRUE : Parked;
+        esac;
+
+      TRUE : state;
+    esac;
+
+-- Definizione degli input per le transizioni
+VAR
+  input : {detect_obstacle, stop, turn_left, turn_right, emergency_brake, change_lane, activate_cruise, reverse, park, clear_obstacle, resume, complete_turn, complete_braking, complete_lane_change, deactivate_cruise, complete_reverse, start, no_input};
+
+-- Inizializzazione degli input
+ASSIGN
+  init(input) := no_input;
+
+MODULE Sensors(input)
+VAR
+  obstacleDetected : boolean;
+  clearObstacle : boolean;
+
+ASSIGN
+  init(obstacleDetected) := FALSE;
+  init(clearObstacle) := FALSE;
+
+  next(obstacleDetected) := 
+    case
+      input = detect_obstacle : TRUE;
+      input = clear_obstacle : FALSE;
+      TRUE : obstacleDetected;
+    esac;
+
+  next(clearObstacle) := 
+    case
+      input = clear_obstacle : TRUE;
+      input = detect_obstacle : FALSE;
+      TRUE : clearObstacle;
+    esac;
+
+MODULE SpeedControl(input)
+VAR
+  cruiseActive : boolean;
+
+ASSIGN
+  init(cruiseActive) := FALSE;
+
+  next(cruiseActive) := 
+    case
+      input = activate_cruise : TRUE;
+      input = deactivate_cruise : FALSE;
+      TRUE : cruiseActive;
+    esac;
+
+MODULE Maneuver(input)
+VAR
+  completeTurn : boolean;
+  completeLaneChange : boolean;
+
+ASSIGN
+  init(completeTurn) := FALSE;
+  init(completeLaneChange) := FALSE;
+
+  next(completeTurn) := 
+    case
+      input = complete_turn : TRUE;
+      input = no_input : FALSE;
+      TRUE : completeTurn;
+    esac;
+
+  next(completeLaneChange) := 
+    case
+      input = complete_lane_change : TRUE;
+      input = no_input : FALSE;
+      TRUE : completeLaneChange;
+    esac;
+
+--- CREDO FUNZIONI
+-- DA AGGIUNGERE AG ETC

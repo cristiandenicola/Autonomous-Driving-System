@@ -1,0 +1,13 @@
+MODULE SpeedControl(input)
+VAR
+  cruiseActive : boolean;
+
+ASSIGN
+  init(cruiseActive) := FALSE;
+
+  next(cruiseActive) := 
+    case
+      input = activate_cruise : TRUE;
+      input = deactivate_cruise : FALSE;
+      TRUE : cruiseActive;
+    esac;

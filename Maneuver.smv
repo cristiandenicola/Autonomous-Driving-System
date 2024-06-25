@@ -1,0 +1,22 @@
+MODULE Maneuver(input)
+VAR
+  completeTurn : boolean;
+  completeLaneChange : boolean;
+
+ASSIGN
+  init(completeTurn) := FALSE;
+  init(completeLaneChange) := FALSE;
+
+  next(completeTurn) := 
+    case
+      input = complete_turn : TRUE;
+      input = turn_left | turn_right : FALSE;
+      TRUE : completeTurn;
+    esac;
+
+  next(completeLaneChange) := 
+    case
+      input = complete_lane_change : TRUE;
+      input = change_lane : FALSE;
+      TRUE : completeLaneChange;
+    esac;
