@@ -119,6 +119,7 @@ VAR
 ASSIGN
   init(input) := no_input;
 
+-- Definizione dei moduli per i sensori, il controllo della velocità e le manovre
 MODULE Sensors(input)
 VAR
   obstacleDetected : boolean;
@@ -179,5 +180,25 @@ ASSIGN
       TRUE : completeLaneChange;
     esac;
 
---- CREDO FUNZIONI
--- DA AGGIUNGERE AG ETC
+-- Proprietà in Linear Temporal Logic (LTL)  BISOGNA SCEGLIERE QUALE APPLICARE, NON SI POSSONO APPLICARE ASSIEME
+LTLSPEC
+  G(state = Driving -> !sensors.obstacleDetected)
+  G(state = CruiseControl -> cruiseActive)
+
+  -- Proprietà in CTL
+CTLSPEC
+  EF state = Parked
+  AG (state = Driving -> !sensors.obstacleDetected)
+
+--ATTENZIONE:
+--Quando utilizzare CTL (Computation Tree Logic):
+
+--CTL è particolarmente adatto per esprimere proprietà che coinvolgono la struttura dell'albero delle computazioni nel modello.
+--CTL è efficace per esprimere condizioni che devono valere in tutti i cammini o in alcuni cammini specifici attraverso il modello.
+--CTL può essere più adatto se hai bisogno di esprimere proprietà ricorsive o che coinvolgono la ricorrenza di determinati stati nel modello.
+
+--Quando utilizzare LTL (Linear Temporal Logic):
+
+--LTL è ideale per verificare sequenze temporali precise di eventi o stati nel modello.
+--LTL è più adatto per esprimere condizioni che devono verificarsi su un singolo cammino attraverso il modello.
+--LTL è utile per verificare condizioni che devono persistere nel tempo o che devono ripetersi periodicamente nel modello.
