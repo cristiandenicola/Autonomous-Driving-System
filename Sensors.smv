@@ -2,10 +2,12 @@ MODULE Sensors(input)
 VAR
   obstacleDetected : boolean;
   clearObstacle : boolean;
+  laneClear : boolean;
 
 ASSIGN
   init(obstacleDetected) := FALSE;
   init(clearObstacle) := FALSE;
+  init(laneClear) := TRUE;
 
   next(obstacleDetected) := 
     case
@@ -19,4 +21,12 @@ ASSIGN
       input = clear_obstacle : TRUE;
       input = detect_obstacle : FALSE;
       TRUE : clearObstacle;
+    esac;
+
+  next(laneClear) := 
+    case
+      input = detect_obstacle : FALSE;
+      input = change_lane : TRUE;
+      input = clear_obstacle : TRUE;
+      TRUE : laneClear;
     esac;

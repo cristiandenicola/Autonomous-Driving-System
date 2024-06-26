@@ -1,37 +1,46 @@
 MODULE main
+
+--- VAR definition
 VAR
   state : {SystemCheck, Idle, Driving, ObstacleDetected, Stopped, TurningLeft, TurningRight, EmergencyBraking, ChangingLanes, CruiseControl, Reversing, Parked};
+
+  --- external modules integrations
   sensors : Sensors(input);
   speedControl : SpeedControl(input);
   maneuver : Maneuver(input);
 
+--- initial state
+-- nb: the def initial state should be idle, but for a logical way we preferred to use a "system check" state.
 ASSIGN
   init(state) := SystemCheck;
 
+  --- state transition case 
   next(state) :=
     case
-      -- Transizione da SystemCheck
+      -- T SystemCheck to DEF
       state = SystemCheck : Idle;
 
-      -- Transizioni da Idle
+      -- T states in which idle can pass
       state = Idle : {Driving, Parked};
 
-      -- Transizioni da Driving
+      -- all possible actions and state transitions that the autonomous system can perform when it is in the Driving state.
+      -- each line represents an option that the system can consider based on input received from sensors or other system components.
+      -- nb. the fist case in an automatic transition based on what the sensor sense, the others (input) require specific commands sent to the system.
       state = Driving : 
         case
-          sensors.obstacleDetected : ObstacleDetected;
-          input = stop : Stopped;
+          sensors.obstacleDetected : ObstacleDetected; 
+          input = stop : Stopped; -- logic is "if the system send a stop signal, the T will be Driving -> Stopped"
           input = turn_left : TurningLeft;
           input = turn_right : TurningRight;
           input = emergency_brake : EmergencyBraking;
-          input = change_lane : ChangingLanes;
+          input = change_lane & sensors.laneClear : ChangingLanes; -- if and only if both true
           input = activate_cruise : CruiseControl;
           input = reverse : Reversing;
           input = park : Parked;
-          TRUE : Driving;
+          TRUE : Driving; -- DEFAULT case. If none of the above conditions are met, the system remains in the Driving state.
         esac;
 
-      -- Transizioni da ObstacleDetected
+      -- transitions that the autonomous system can perform in ObstacleDetected state 
       state = ObstacleDetected : 
         case
           sensors.clearObstacle : Driving;
@@ -40,7 +49,7 @@ ASSIGN
           TRUE : ObstacleDetected;
         esac;
 
-      -- Transizioni da Stopped
+      -- transitions that the autonomous system can perform in Stopped state 
       state = Stopped : 
         case
           input = resume : Driving;
@@ -48,7 +57,9 @@ ASSIGN
           TRUE : Stopped;
         esac;
 
-      -- Transizioni da TurningLeft
+      -- transitions that the autonomous system can perform in TurningLeft state
+      -- nb. initially TurningLeft was really simple, just a "after completing the turn, returns to driving", 
+      -- but we thought that maybe during a turn there might be a crosswalk etc.
       state = TurningLeft : 
         case
           maneuver.completeTurn : Driving;
@@ -57,7 +68,8 @@ ASSIGN
           TRUE : TurningLeft;
         esac;
 
-          -- Transizioni da TurningRight
+      -- transitions that the autonomous system can perform in TurningRight state
+      -- same reasoning as before
       state = TurningRight : 
         case
           maneuver.completeTurn : Driving;
@@ -66,15 +78,15 @@ ASSIGN
           TRUE : TurningRight;
         esac;
 
-      -- Transizioni da EmergencyBraking
+      -- transitions that the autonomous system can perform in EmergencyBraking state
       state = EmergencyBraking : 
         case
           input = complete_braking : Stopped;
-          sensors.clearObstacle : ObstacleDetected;
+          sensors.clearObstacle : Driving;
           TRUE : EmergencyBraking;
         esac;
 
-      -- Transizioni da ChangingLanes
+      -- transitions that the autonomous system can perform in ChangingLanes state
       state = ChangingLanes : 
         case
           maneuver.completeLaneChange : Driving;
@@ -83,7 +95,7 @@ ASSIGN
           TRUE : ChangingLanes;
         esac;
 
-      -- Transizioni da CruiseControl
+      -- transitions that the autonomous system can perform in CruiseControl state
       state = CruiseControl : 
         case
           input = deactivate_cruise : Driving;
@@ -92,7 +104,7 @@ ASSIGN
           TRUE : CruiseControl;
         esac;
 
-      -- Transizioni da Reversing
+      -- transitions that the autonomous system can perform in Reversing state
       state = Reversing : 
         case
           input = complete_reverse : Driving;
@@ -101,7 +113,8 @@ ASSIGN
           TRUE : Reversing;
         esac;
 
-      -- Transizioni da Parked
+      -- transitions that the autonomous system can perform in Parked state
+      -- the next state will be idle, skipping the system check (just because has already been done initially).
       state = Parked : 
         case
           input = start : Idle;
@@ -111,24 +124,28 @@ ASSIGN
       TRUE : state;
     esac;
 
--- Definizione degli input per le transizioni
+-- DEF transition inputs
 VAR
   input : {detect_obstacle, stop, turn_left, turn_right, emergency_brake, change_lane, activate_cruise, reverse, park, clear_obstacle, resume, complete_turn, complete_braking, complete_lane_change, deactivate_cruise, complete_reverse, start, no_input};
 
--- Inizializzazione degli input
 ASSIGN
   init(input) := no_input;
 
--- Definizione dei moduli per i sensori, il controllo della velocità e le manovre
+-- definition of modules
 MODULE Sensors(input)
 VAR
   obstacleDetected : boolean;
   clearObstacle : boolean;
+  laneClear : boolean;
 
+-- init of boolean VAR
 ASSIGN
   init(obstacleDetected) := FALSE;
   init(clearObstacle) := FALSE;
+  init(laneClear) := TRUE;
 
+  --- DEF of input-based transitions
+  -- T obstacleDetected will be true if and only if detect_obstacle and TRUE and clear_obstacle FALSE
   next(obstacleDetected) := 
     case
       input = detect_obstacle : TRUE;
@@ -141,6 +158,14 @@ ASSIGN
       input = clear_obstacle : TRUE;
       input = detect_obstacle : FALSE;
       TRUE : clearObstacle;
+    esac;
+
+  next(laneClear) := 
+    case
+      input = detect_obstacle : FALSE;
+      input = change_lane : TRUE;
+      input = clear_obstacle : TRUE;
+      TRUE : laneClear;
     esac;
 
 MODULE SpeedControl(input)
@@ -180,25 +205,27 @@ ASSIGN
       TRUE : completeLaneChange;
     esac;
 
--- Proprietà in Linear Temporal Logic (LTL)  BISOGNA SCEGLIERE QUALE APPLICARE, NON SI POSSONO APPLICARE ASSIEME
+
+--TODO: DA CAPIRE PERCHE' QUESTE NON FUNZIONANO.
+-- SONO CORRETTE MA SE RUNNO IL CODICE MI DA QUESTO OUTPUT :
+
+-- TYPE ERROR file main.smv: line 210 : undefined identifier 'maneuver.state'
+-- TYPE ERROR file main.smv: line 210 : undefined identifier 'maneuver.sensors.laneClear'
+-- ERROR: Property " G (state = ChangingLanes -> sensors.laneClear) IN maneuve" is not correct or not well typed.
+
 LTLSPEC
-  G(state = Driving -> !sensors.obstacleDetected)
-  G(state = CruiseControl -> cruiseActive)
+  -- safe prop
+  G (state = ChangingLanes -> sensors.laneClear);
+  -- globally means that if the state is ChangingLanes than laneClear MUST be true.
+  -- simple logic T -> T
 
-  -- Proprietà in CTL
-CTLSPEC
-  EF state = Parked
-  AG (state = Driving -> !sensors.obstacleDetected)
+LTLSPEC
+  -- safe prop
+  G (state = Driving -> !sensors.obstacleDetected);
+  -- globally means that if the state is Driving than obstacleDetected MUST be false.
+  -- simple logic T -> T
 
---ATTENZIONE:
---Quando utilizzare CTL (Computation Tree Logic):
-
---CTL è particolarmente adatto per esprimere proprietà che coinvolgono la struttura dell'albero delle computazioni nel modello.
---CTL è efficace per esprimere condizioni che devono valere in tutti i cammini o in alcuni cammini specifici attraverso il modello.
---CTL può essere più adatto se hai bisogno di esprimere proprietà ricorsive o che coinvolgono la ricorrenza di determinati stati nel modello.
-
---Quando utilizzare LTL (Linear Temporal Logic):
-
---LTL è ideale per verificare sequenze temporali precise di eventi o stati nel modello.
---LTL è più adatto per esprimere condizioni che devono verificarsi su un singolo cammino attraverso il modello.
---LTL è utile per verificare condizioni che devono persistere nel tempo o che devono ripetersi periodicamente nel modello.
+LTLSPEC
+  -- just a check for logical integrity.
+  G (state = CruiseControl -> speedControl.cruiseActive);
+  -- globally means that if the state is CruiseControl than cruiseActive MUST be true.
