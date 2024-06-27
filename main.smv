@@ -1,4 +1,3 @@
-
 MODULE main
 
 --- VAR definition
@@ -20,16 +19,20 @@ ASSIGN
     case
       -- T SystemCheck to DEF
       state = SystemCheck : Idle;
-
-      -- T states in which idle can pass
-      state = Idle : {Driving, Parked};
-
+      state = Idle :
+        case
+          input = detect_obstacle : ObstacleDetected;
+          !sensors.obstacleDetected & input = start : Driving;
+          !sensors.obstacleDetected & input = activate_cruise : CruiseControl;
+          TRUE : Idle;
+        esac;
       -- all possible actions and state transitions that the autonomous system can perform when it is in the Driving state.
       -- each line represents an option that the system can consider based on input received from sensors or other system components.
       -- nb. the fist case in an automatic transition based on what the sensor sense, the others (input) require specific commands sent to the system.
       state = Driving : 
         case
-          sensors.obstacleDetected : ObstacleDetected; 
+          sensors.obstacleDetected : ObstacleDetected;
+          sensors.obstacleDetected & input = detect_obstacle : ObstacleDetected;  -- Transizione se l'ostacolo viene rilevato e sensors.obstacleDetected è vero
           input = stop : Stopped; -- logic is "if the system send a stop signal, the T will be Driving -> Stopped"
           input = turn_left : TurningLeft;
           input = turn_right : TurningRight;
@@ -38,13 +41,15 @@ ASSIGN
           input = activate_cruise : CruiseControl;
           input = reverse : Reversing;
           input = park : Parked;
-          TRUE : Driving; -- DEFAULT case. If none of the above conditions are met, the system remains in the Driving state.
+          --sensors.clearObstacle & input = clear_obstacle : Driving;
+          TRUE : Driving;
         esac;
 
       -- transitions that the autonomous system can perform in ObstacleDetected state 
       state = ObstacleDetected : 
         case
           sensors.clearObstacle : Driving;
+          sensors.clearObstacle & input = clear_obstacle : Driving;
           input = stop : Stopped;
           input = emergency_brake : EmergencyBraking;
           TRUE : ObstacleDetected;
@@ -53,7 +58,8 @@ ASSIGN
       -- transitions that the autonomous system can perform in Stopped state 
       state = Stopped : 
         case
-          input = resume : Driving;
+          sensors.clearObstacle & input = resume : Driving;
+          --input = resume : Driving;
           input = park : Parked;
           TRUE : Stopped;
         esac;
@@ -93,6 +99,7 @@ ASSIGN
           maneuver.completeLaneChange : Driving;
           sensors.obstacleDetected : ObstacleDetected;
           input = emergency_brake : EmergencyBraking;
+          sensors.laneClear : Driving;
           TRUE : ChangingLanes;
         esac;
 
@@ -155,7 +162,7 @@ VAR
 -- init of boolean VAR
 ASSIGN
   init(obstacleDetected) := FALSE;
-  init(clearObstacle) := FALSE;
+  init(clearObstacle) := TRUE;
   init(laneClear) := TRUE;
 
   --- DEF of input-based transitions
@@ -172,7 +179,7 @@ ASSIGN
       input = clear_obstacle : TRUE;
       input = detect_obstacle : FALSE;
       TRUE : clearObstacle;
-    esac;
+    esac; 
 
   next(laneClear) := 
     case
@@ -181,12 +188,6 @@ ASSIGN
       input = clear_obstacle : TRUE;
       TRUE : laneClear;
     esac;
-
-
-
-
-
-
 
 MODULE SpeedControl(input)
 VAR
@@ -225,12 +226,3 @@ ASSIGN
       input = no_input : FALSE;
       TRUE : completeLaneChange;
     esac;
-
-
---TODO: DA CAPIRE PERCHE' QUESTE NON FUNZIONANO.
--- SONO CORRETTE MA SE RUNNO IL CODICE MI DA QUESTO OUTPUT :
-
--- TYPE ERROR file main.smv: line 210 : undefined identifier 'maneuver.state'
--- TYPE ERROR file main.smv: line 210 : undefined identifier 'maneuver.sensors.laneClear'
--- ERROR: Property " G (state = ChangingLanes -> sensors.laneClear) IN maneuve" is not correct or not well typed.
-
