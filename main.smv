@@ -3,6 +3,7 @@ MODULE main
 --- VAR definition
 VAR
   state : {SystemCheck, Idle, Driving, ObstacleDetected, Stopped, TurningLeft, TurningRight, EmergencyBraking, ChangingLanes, CruiseControl, Reversing, Parked};
+  input : {detect_obstacle, stop, turn_left, complete_turn, turn_right, emergency_brake, change_lane, activate_cruise, reverse, park, clear_obstacle, resume, complete_braking, complete_lane_change, deactivate_cruise, complete_reverse, start, no_input};
 
 VAR
  sensors : Sensors(input);
@@ -13,6 +14,23 @@ VAR
 -- nb: the def initial state should be idle, but for a logical way we preferred to use a "system check" state.
 ASSIGN
   init(state) := SystemCheck;
+  init(input) := no_input;
+
+   next(input) :=
+    case
+      state = Idle : {detect_obstacle, start};
+      state = Driving : {detect_obstacle, stop, turn_left, turn_right, emergency_brake, change_lane, activate_cruise, no_input};
+      state = ObstacleDetected : {clear_obstacle};
+      state = Stopped : {reverse, park, clear_obstacle, resume, no_input};
+      state = TurningLeft : {complete_turn, detect_obstacle, clear_obstacle, emergency_brake, no_input};
+      state = TurningRight : {complete_turn, detect_obstacle, clear_obstacle, emergency_brake, no_input};
+      state = EmergencyBraking : {complete_braking, no_input}; 
+      state = ChangingLanes : {detect_obstacle, clear_obstacle, change_lane, complete_lane_change, emergency_brake, no_input}; 
+      state = CruiseControl : {deactivate_cruise, emergency_brake,  no_input}; 
+      state = Reversing : {detect_obstacle, clear_obstacle, complete_reverse, emergency_brake, stop, park, resume, no_input}; 
+      state = Parked : {start, no_input};
+      TRUE : no_input;
+    esac;
 
   --- state transition case 
   next(state) :=
@@ -22,8 +40,7 @@ ASSIGN
       state = Idle :
         case
           input = detect_obstacle : ObstacleDetected;
-          sensors.clearObstacle : Driving;
-          --!sensors.obstacleDetected & input = activate_cruise : CruiseControl;
+          sensors.clearObstacle & input = start : Driving;
           TRUE : Idle;
         esac;
       -- all possible actions and state transitions that the autonomous system can perform when it is in the Driving state.
@@ -39,7 +56,6 @@ ASSIGN
           input = emergency_brake : EmergencyBraking;
           input = change_lane & sensors.laneClear : ChangingLanes; -- if and only if both true
           input = activate_cruise : CruiseControl;
-          input = complete_braking : Stopped;
           --sensors.clearObstacle & input = clear_obstacle : Driving;
           TRUE : Driving;
         esac;
@@ -48,7 +64,7 @@ ASSIGN
       state = ObstacleDetected : 
         case
           sensors.clearObstacle : Driving;
-          input = clear_obstacle : Driving;
+          sensors.clearObstacle & input = resume : Driving;
           input = emergency_brake : EmergencyBraking;
           input = stop : Stopped;
           TRUE : ObstacleDetected;
@@ -60,6 +76,7 @@ ASSIGN
           input = resume & sensors.clearObstacle : Driving; -- if and only if both true
           input = park : Parked;
           input = reverse : Reversing;
+          input = clear_obstacle : Driving;
           TRUE : Stopped;
         esac;
 
@@ -69,6 +86,7 @@ ASSIGN
       state = TurningLeft : 
         case
           sensors.obstacleDetected : ObstacleDetected;
+          maneuver.completeTurn : Driving;
           input = complete_turn : Driving;
           input = emergency_brake : EmergencyBraking;
           TRUE : TurningLeft;
@@ -89,6 +107,7 @@ ASSIGN
       state = EmergencyBraking : 
         case
           input = complete_braking : Stopped;
+          input = clear_obstacle : Driving;
           -- si deve fermare e passare in stopped
           TRUE : Stopped;
         esac;
@@ -119,8 +138,6 @@ ASSIGN
           sensors.obstacleDetected : ObstacleDetected;
           input = emergency_brake : EmergencyBraking;
           input =  stop : Stopped;
-          input =  turn_left : TurningLeft;
-          input =  turn_right : TurningRight;
           input =  park : Parked;
           input =  resume : Driving ;
           TRUE : Reversing;
@@ -135,13 +152,6 @@ ASSIGN
         esac;
       TRUE : state;
     esac;
-
--- DEF transition inputs
-VAR
-  input : {detect_obstacle, stop, turn_left, complete_turn, turn_right, emergency_brake, change_lane, activate_cruise, reverse, park, clear_obstacle, resume, complete_braking, complete_lane_change, deactivate_cruise, complete_reverse, start, no_input};
-
-ASSIGN
-  init(input) := no_input;
 
 LTLSPEC
   -- Proprietà di sicurezza: se lo stato è ChangingLanes, laneClear deve essere vero
