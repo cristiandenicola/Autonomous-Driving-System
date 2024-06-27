@@ -22,8 +22,8 @@ ASSIGN
       state = Idle :
         case
           input = detect_obstacle : ObstacleDetected;
-          !sensors.obstacleDetected & input = start : Driving;
-          !sensors.obstacleDetected & input = activate_cruise : CruiseControl;
+          sensors.clearObstacle : Driving;
+          --!sensors.obstacleDetected & input = activate_cruise : CruiseControl;
           TRUE : Idle;
         esac;
       -- all possible actions and state transitions that the autonomous system can perform when it is in the Driving state.
@@ -32,15 +32,14 @@ ASSIGN
       state = Driving : 
         case
           sensors.obstacleDetected : ObstacleDetected;
-          sensors.obstacleDetected & input = detect_obstacle : ObstacleDetected;  -- Transizione se l'ostacolo viene rilevato e sensors.obstacleDetected è vero
+          input = detect_obstacle : ObstacleDetected;  -- Transizione se l'ostacolo viene rilevato e sensors.obstacleDetected è vero
           input = stop : Stopped; -- logic is "if the system send a stop signal, the T will be Driving -> Stopped"
           input = turn_left : TurningLeft;
           input = turn_right : TurningRight;
           input = emergency_brake : EmergencyBraking;
           input = change_lane & sensors.laneClear : ChangingLanes; -- if and only if both true
           input = activate_cruise : CruiseControl;
-          input = reverse : Reversing;
-          input = park : Parked;
+          input = complete_braking : Stopped;
           --sensors.clearObstacle & input = clear_obstacle : Driving;
           TRUE : Driving;
         esac;
@@ -49,18 +48,18 @@ ASSIGN
       state = ObstacleDetected : 
         case
           sensors.clearObstacle : Driving;
-          sensors.clearObstacle & input = clear_obstacle : Driving;
-          input = stop : Stopped;
+          input = clear_obstacle : Driving;
           input = emergency_brake : EmergencyBraking;
+          input = stop : Stopped;
           TRUE : ObstacleDetected;
         esac;
 
       -- transitions that the autonomous system can perform in Stopped state 
       state = Stopped : 
         case
-          sensors.clearObstacle & input = resume : Driving;
-          --input = resume : Driving;
+          input = resume & sensors.clearObstacle : Driving; -- if and only if both true
           input = park : Parked;
+          input = reverse : Reversing;
           TRUE : Stopped;
         esac;
 
@@ -69,8 +68,8 @@ ASSIGN
       -- but we thought that maybe during a turn there might be a crosswalk etc.
       state = TurningLeft : 
         case
-          maneuver.completeTurn : Driving;
           sensors.obstacleDetected : ObstacleDetected;
+          input = complete_turn : Driving;
           input = emergency_brake : EmergencyBraking;
           TRUE : TurningLeft;
         esac;
@@ -79,8 +78,9 @@ ASSIGN
       -- same reasoning as before
       state = TurningRight : 
         case
-          maneuver.completeTurn : Driving;
           sensors.obstacleDetected : ObstacleDetected;
+          maneuver.completeTurn : Driving;
+          input = complete_turn : Driving;
           input = emergency_brake : EmergencyBraking;
           TRUE : TurningRight;
         esac;
@@ -89,17 +89,18 @@ ASSIGN
       state = EmergencyBraking : 
         case
           input = complete_braking : Stopped;
-          sensors.clearObstacle : Driving;
-          TRUE : EmergencyBraking;
+          -- si deve fermare e passare in stopped
+          TRUE : Stopped;
         esac;
 
       -- transitions that the autonomous system can perform in ChangingLanes state
       state = ChangingLanes : 
         case
+          sensors.laneClear : Driving;
           maneuver.completeLaneChange : Driving;
           sensors.obstacleDetected : ObstacleDetected;
+          input = detect_obstacle : ObstacleDetected;
           input = emergency_brake : EmergencyBraking;
-          sensors.laneClear : Driving;
           TRUE : ChangingLanes;
         esac;
 
@@ -107,7 +108,6 @@ ASSIGN
       state = CruiseControl : 
         case
           input = deactivate_cruise : Driving;
-          sensors.obstacleDetected : ObstacleDetected;
           input = emergency_brake : EmergencyBraking;
           TRUE : CruiseControl;
         esac;
@@ -118,6 +118,11 @@ ASSIGN
           input = complete_reverse : Driving;
           sensors.obstacleDetected : ObstacleDetected;
           input = emergency_brake : EmergencyBraking;
+          input =  stop : Stopped;
+          input =  turn_left : TurningLeft;
+          input =  turn_right : TurningRight;
+          input =  park : Parked;
+          input =  resume : Driving ;
           TRUE : Reversing;
         esac;
 
@@ -128,13 +133,12 @@ ASSIGN
           input = start : Idle;
           TRUE : Parked;
         esac;
-
       TRUE : state;
     esac;
 
 -- DEF transition inputs
 VAR
-  input : {detect_obstacle, stop, turn_left, turn_right, emergency_brake, change_lane, activate_cruise, reverse, park, clear_obstacle, resume, complete_turn, complete_braking, complete_lane_change, deactivate_cruise, complete_reverse, start, no_input};
+  input : {detect_obstacle, stop, turn_left, complete_turn, turn_right, emergency_brake, change_lane, activate_cruise, reverse, park, clear_obstacle, resume, complete_braking, complete_lane_change, deactivate_cruise, complete_reverse, start, no_input};
 
 ASSIGN
   init(input) := no_input;
@@ -150,6 +154,18 @@ LTLSPEC
 LTLSPEC
   -- Verifica integrità logica: se lo stato è CruiseControl, cruiseActive deve essere vero
   G (state = CruiseControl -> speedControl.cruiseActive);
+
+LTLSPEC 
+  G (state = Driving -> !((state = Reversing) | (state = Parked)));
+
+LTLSPEC 
+  G (state = EmergencyBraking -> X(state = Stopped));
+
+LTLSPEC 
+  G (state = Reversing -> X !(state = CruiseControl));
+
+LTLSPEC 
+  G (state = Reversing -> X !(state = ChangingLanes));
 
 
 -- definition of modules
@@ -207,10 +223,12 @@ MODULE Maneuver(input)
 VAR
   completeTurn : boolean;
   completeLaneChange : boolean;
+  --- AGGIUNGERE COMPLETE REV
+  --- complete frenata
 
 
 ASSIGN
-  init(completeTurn) := FALSE;
+  init(completeTurn) := TRUE;
   init(completeLaneChange) := FALSE;
 
   next(completeTurn) := 
