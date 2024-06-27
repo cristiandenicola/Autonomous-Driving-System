@@ -1,13 +1,14 @@
+
 MODULE main
 
 --- VAR definition
 VAR
   state : {SystemCheck, Idle, Driving, ObstacleDetected, Stopped, TurningLeft, TurningRight, EmergencyBraking, ChangingLanes, CruiseControl, Reversing, Parked};
 
-  --- external modules integrations
-  sensors : Sensors(input);
-  speedControl : SpeedControl(input);
-  maneuver : Maneuver(input);
+VAR
+ sensors : Sensors(input);
+ speedControl : SpeedControl(input);
+ maneuver : Maneuver(input);
 
 --- initial state
 -- nb: the def initial state should be idle, but for a logical way we preferred to use a "system check" state.
@@ -131,6 +132,19 @@ VAR
 ASSIGN
   init(input) := no_input;
 
+LTLSPEC
+  -- Proprietà di sicurezza: se lo stato è ChangingLanes, laneClear deve essere vero
+  G (state = ChangingLanes -> sensors.laneClear);
+
+LTLSPEC
+  -- Proprietà di sicurezza: se lo stato è Driving, obstacleDetected deve essere falso
+  G (state = Driving -> !sensors.obstacleDetected);
+
+LTLSPEC
+  -- Verifica integrità logica: se lo stato è CruiseControl, cruiseActive deve essere vero
+  G (state = CruiseControl -> speedControl.cruiseActive);
+
+
 -- definition of modules
 MODULE Sensors(input)
 VAR
@@ -168,6 +182,12 @@ ASSIGN
       TRUE : laneClear;
     esac;
 
+
+
+
+
+
+
 MODULE SpeedControl(input)
 VAR
   cruiseActive : boolean;
@@ -186,6 +206,7 @@ MODULE Maneuver(input)
 VAR
   completeTurn : boolean;
   completeLaneChange : boolean;
+
 
 ASSIGN
   init(completeTurn) := FALSE;
@@ -213,19 +234,3 @@ ASSIGN
 -- TYPE ERROR file main.smv: line 210 : undefined identifier 'maneuver.sensors.laneClear'
 -- ERROR: Property " G (state = ChangingLanes -> sensors.laneClear) IN maneuve" is not correct or not well typed.
 
-LTLSPEC
-  -- safe prop
-  G (state = ChangingLanes -> sensors.laneClear);
-  -- globally means that if the state is ChangingLanes than laneClear MUST be true.
-  -- simple logic T -> T
-
-LTLSPEC
-  -- safe prop
-  G (state = Driving -> !sensors.obstacleDetected);
-  -- globally means that if the state is Driving than obstacleDetected MUST be false.
-  -- simple logic T -> T
-
-LTLSPEC
-  -- just a check for logical integrity.
-  G (state = CruiseControl -> speedControl.cruiseActive);
-  -- globally means that if the state is CruiseControl than cruiseActive MUST be true.
