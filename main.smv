@@ -54,7 +54,7 @@ ASSIGN
           input = turn_left : TurningLeft;
           input = turn_right : TurningRight;
           input = emergency_brake : EmergencyBraking;
-          input = change_lane & sensors.laneClear : ChangingLanes; -- if and only if both true
+          input =  change_lane & sensors.laneClear : ChangingLanes; -- if and only if both true
           input = activate_cruise : CruiseControl;
           --sensors.clearObstacle & input = clear_obstacle : Driving;
           TRUE : Driving;
@@ -107,7 +107,6 @@ ASSIGN
       state = EmergencyBraking : 
         case
           input = complete_braking : Stopped;
-          input = clear_obstacle : Driving;
           -- si deve fermare e passare in stopped
           TRUE : Stopped;
         esac;
