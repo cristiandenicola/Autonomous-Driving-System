@@ -12,7 +12,7 @@
 -- lane_position = RIGHT
 -- sensors.obstacle_detected = TRUE
 -- NON ROMPE LA SIM E LE LTL, è SOLO UN BUG BRUTTO DA VEDERE
-
+MODULE main
 VAR
 state : {IDLE, SYSTEM_CHECK, DRIVING, OBSTACLE_DETECTED, STOPPED, PARKED, CHANGING_LANE, TURNING};
 input : {
@@ -90,6 +90,7 @@ ASSIGN
             state = TURNING :
                 case
                     input = turn_completed : DRIVING;
+                    input = detect_obstacle : OBSTACLE_DETECTED;
                     TRUE : TURNING;
                 esac;    
             
