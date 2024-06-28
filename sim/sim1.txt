@@ -1,0 +1,314 @@
+## SIMULAZIONE 28/06 16:32
+## COMANDI
+go
+pick_state -r
+simulate -r 50
+show_traces -v 1
+
+Trace Description: Simulation Trace
+Trace Type: Simulation
+
+  -> State: 1.1 <-
+    state = IDLE
+    input = no_input
+    lane_position = NaN
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.2 <-
+    state = IDLE
+    input = check_status
+    lane_position = NaN
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.3 <-
+    state = SYSTEM_CHECK
+    input = no_input
+    lane_position = NaN
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.4 <-
+    state = SYSTEM_CHECK
+    input = start
+    lane_position = NaN
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.5 <-
+    state = DRIVING
+    input = start
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.6 <-
+    state = DRIVING
+    input = turn
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.7 <-
+    state = TURNING
+    input = detect_obstacle
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+BUG STRANO ?????????????
+------------------
+  -> State: 1.8 <-
+    state = TURNING
+    input = turn_completed
+    lane_position = RIGHT
+    sensors.obstacle_detected = TRUE
+
+DOPO TORNA TUTTO APPOSTO DA SOLO WTF
+--------------------
+  -> State: 1.9 <-
+    state = DRIVING
+    input = turn_completed
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.10 <-
+    state = DRIVING
+    input = detect_obstacle
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.11 <-
+    state = OBSTACLE_DETECTED
+    input = turn
+    lane_position = RIGHT
+    sensors.obstacle_detected = TRUE
+ 
+  -> State: 1.12 <-
+    state = STOPPED
+    input = brake
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.13 <-
+    state = STOPPED
+    input = detect_green_light
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.14 <-
+    state = DRIVING
+    input = detect_green_light
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.15 <-
+    state = DRIVING
+    input = change_lane
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.16 <-
+    state = CHANGING_LANE
+    input = change_lane
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.17 <-
+    state = CHANGING_LANE
+    input = change_lane_completed
+    lane_position = RIGHT
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.18 <-
+    state = DRIVING
+    input = change_lane_completed
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.19 <-
+    state = DRIVING
+    input = detect_obstacle
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.20 <-
+    state = OBSTACLE_DETECTED
+    input = no_input
+    lane_position = CENTER
+    sensors.obstacle_detected = TRUE
+ 
+  -> State: 1.21 <-
+    state = STOPPED
+    input = brake
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.22 <-
+    state = STOPPED
+    input = resume
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.23 <-
+    state = DRIVING
+    input = resume
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.24 <-
+    state = DRIVING
+    input = detect_obstacle
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.25 <-
+    state = OBSTACLE_DETECTED
+    input = detect_red_light
+    lane_position = CENTER
+    sensors.obstacle_detected = TRUE
+ 
+  -> State: 1.26 <-
+    state = STOPPED
+    input = brake
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.27 <-
+    state = STOPPED
+    input = detect_green_light
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.28 <-
+    state = DRIVING
+    input = detect_green_light
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.29 <-
+    state = DRIVING
+    input = detect_obstacle
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.30 <-
+    state = OBSTACLE_DETECTED
+    input = turn
+    lane_position = CENTER
+    sensors.obstacle_detected = TRUE
+ 
+  -> State: 1.31 <-
+    state = STOPPED
+    input = brake
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.32 <-
+    state = STOPPED
+    input = park
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+
+  -> State: 1.33 <-
+    state = PARKED
+    input = resume
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.34 <-
+    state = PARKED
+    input = no_input
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.35 <-
+    state = PARKED
+    input = no_input
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.36 <-
+    state = PARKED
+    input = no_input
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.37 <-
+    state = PARKED
+    input = no_input
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.38 <-
+    state = PARKED
+    input = stop
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.39 <-
+    state = IDLE
+    input = no_input
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.40 <-
+    state = IDLE
+    input = check_status
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.41 <-
+    state = SYSTEM_CHECK
+    input = check_status
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.42 <-
+    state = SYSTEM_CHECK
+    input = start
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.43 <-
+    state = DRIVING
+    input = start
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.44 <-
+    state = DRIVING
+    input = detect_obstacle
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.45 <-
+    state = OBSTACLE_DETECTED
+    input = detect_obstacle
+    lane_position = CENTER
+    sensors.obstacle_detected = TRUE
+ 
+  -> State: 1.46 <-
+    state = STOPPED
+    input = brake
+    lane_position = CENTER
+    sensors.obstacle_detected = TRUE
+ 
+  -> State: 1.47 <-
+    state = STOPPED
+    input = detect_green_light
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.48 <-
+    state = DRIVING
+    input = resume
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+  
+  -> State: 1.49 <-
+    state = DRIVING
+    input = detect_obstacle
+    lane_position = CENTER
+    sensors.obstacle_detected = FALSE
+ 
+  -> State: 1.50 <-
+    state = OBSTACLE_DETECTED
+    input = turn
+    lane_position = CENTER
+    sensors.obstacle_detected = TRUE
+  -> State: 1.51 <-

@@ -1,29 +1,17 @@
--- FILE DI TEST
--- sto provando a ristrutturare il codice principale per migliorarlo e farlo funzionare bene
--- runna questo e non più il main.smv (poi se tutto va bene questo diventerà il main), sia logicamente che a livello codice questo è meglio.
+-- specification  G (state = DRIVING -> !sensors.obstacle_detected)  is true
+-- specification  G (state = TURNING ->  F state = DRIVING)  is true
+-- specification  G (state = DRIVING -> lane_position != NaN)  is true
+-- GODO
 
--- l'ho fatto tutto a mano, no chat, cosi è più pulito e sappiamo cosa c'è dentro.
+--TODO:
+-- fare in modo che detect_green_light avvenga solo dopo detect_red_light;
 
--- MODIFICHE PRINCIPALI:
--- caso base è IDLE non CHECK, quindi la transazione è IDLE -> CHECK -> DRIVING (FUNZIONANTE).
--- no cruise -> è un sistema di guida automatico, va già da solo lol
--- modificati input che possono ricevere gli stati e ordinati per bene.
--- LTLSPEC G (state = DRIVING -> !sensors.obstacle_detected) ORA FUNZIONA
--- aggiunta feature next(lane_position), usata per modificare la posizione in [LEFT, CENTER, RIGHT] quando fa change_lane. FUNZIONA.
--- TURNING ingloba sia left che right, più easy.
--- aggiunti i semafori.
-
---TODO: PROBLEMI DA RISOLVERE:
-
--- le sim sono logicamente giuste, ma quando si entra in DRIVING viene spammato l'input detect_obstacle.
--- quindi è sempre un DRIVING -> OBSTACLE_DETECTED -> STOPPED -> DRIVING.
-
--- LTLSPEC G (state = TURNING -> X(state = DRIVING)).
--- non capisco perchè visto state = TURNING : {turn_completed}; ma mentre si è in TURNING prende input strani ?????
-
--- per il resto appena si riesce a eliminare il problema 1 bisogna testare gli altri input in DRIVING.
-
-MODULE main
+-- bugfix su questa situa:
+-- state = TURNING
+-- input = turn_completed
+-- lane_position = RIGHT
+-- sensors.obstacle_detected = TRUE
+-- NON ROMPE LA SIM E LE LTL, è SOLO UN BUG BRUTTO DA VEDERE
 
 VAR
 state : {IDLE, SYSTEM_CHECK, DRIVING, OBSTACLE_DETECTED, STOPPED, PARKED, CHANGING_LANE, TURNING};
@@ -31,26 +19,25 @@ input : {
     check_status, 
     no_input, 
     start, 
-    detect_obstacle, 
     brake, 
     resume, 
     park, 
     stop, 
+    turn,
     change_lane, 
     change_lane_completed, 
+    detect_obstacle, 
     detect_stop_sign,
     detect_red_light,
     detect_green_light,
-    turn,
     turn_completed
 };
 lane_position : {LEFT, CENTER, RIGHT, NaN}; -- pool per change_lane
 sensors : Sensors(input);
-maneuver : Maneuver(input);
 
 LTLSPEC G (state = DRIVING -> !sensors.obstacle_detected) --OK
 LTLSPEC G (state = DRIVING -> lane_position != NaN) --OK
-LTLSPEC G (state = TURNING -> X(state = DRIVING)) --TODO: metterla a posto, per ora rotta.
+LTLSPEC G (state = TURNING -> F(state = DRIVING)) -- OK 
 
 ASSIGN
     init(state) := IDLE;
@@ -63,8 +50,8 @@ ASSIGN
             state = IDLE : {check_status, no_input};
             state = SYSTEM_CHECK : {start};
             state = DRIVING : {
-                turn,
-                change_lane, 
+                change_lane,
+                turn, 
                 detect_stop_sign,
                 detect_obstacle, 
                 detect_red_light,  
@@ -95,8 +82,6 @@ ASSIGN
             state = DRIVING :
                 case
                     input = turn : TURNING;
-                    input = detect_stop_sign : STOPPED;
-                    input = detect_red_light & sensors.red_light_detected : STOPPED;
                     input = change_lane & !sensors.obstacle_detected : CHANGING_LANE;
                     input = detect_obstacle : OBSTACLE_DETECTED;
                     TRUE : DRIVING;
@@ -111,7 +96,7 @@ ASSIGN
             state = OBSTACLE_DETECTED :
                 case
                     input = brake & sensors.obstacle_detected : STOPPED;
-                    TRUE : OBSTACLE_DETECTED;
+                    TRUE : STOPPED;
                 esac;
 
              state = CHANGING_LANE :
@@ -123,7 +108,7 @@ ASSIGN
             state = STOPPED :
                 case
                     input = resume & !sensors.obstacle_detected : DRIVING;
-                    input = detect_green_light &sensors.green_light_detected : DRIVING;
+                    input = detect_green_light : DRIVING;
                     input = park : PARKED;
                     TRUE : STOPPED;
                 esac;
@@ -133,6 +118,7 @@ ASSIGN
                     input = stop : IDLE;
                     TRUE : PARKED;
                 esac;
+            TRUE : state;
         esac;
 
     next(lane_position) :=
@@ -154,54 +140,19 @@ ASSIGN
                     lane_position = LEFT : CENTER;
                     TRUE : lane_position;
                 esac;
-
             TRUE : lane_position;
         esac;
 
 MODULE Sensors(input)
 VAR
     obstacle_detected : boolean;
-    red_light_detected : boolean;
-    green_light_detected : boolean;
 ASSIGN
     init(obstacle_detected) := FALSE;
-    init(red_light_detected) := FALSE;
-    init(green_light_detected) := FALSE;
 
     next(obstacle_detected) := 
         case
             input = detect_obstacle : TRUE;
+            input = resume : FALSE;
+            input = change_lane_completed : FALSE;
             TRUE :  FALSE;
         esac;
-    next(red_light_detected) := 
-        case
-            input = detect_red_light : TRUE;
-            TRUE :  FALSE;
-        esac;
-    next(green_light_detected) := 
-        case
-            input = detect_green_light : TRUE;
-            TRUE :  FALSE;
-        esac;
-
-MODULE Maneuver(input)
-VAR
-    lane_change_completed : boolean;
-    completed_turn : boolean;
-    
-ASSIGN
-    init(lane_change_completed) := FALSE;
-    init(completed_turn) := FALSE;
-
-    next(completed_turn) := 
-        case
-            input = turn_completed : TRUE;
-            TRUE :  FALSE;
-        esac;
-
-    next(lane_change_completed) := 
-        case
-            input = change_lane_completed : TRUE;
-            TRUE :  FALSE;
-        esac;
-
