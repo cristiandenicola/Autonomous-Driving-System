@@ -1,49 +1,79 @@
--- specification  G (state = DRIVING -> !sensors.obstacle_detected)  is true
--- specification  G (state = TURNING ->  F state = DRIVING)  is true
--- specification  G (state = DRIVING -> lane_position != NaN)  is true
--- GODO
-
---TODO:
--- fare in modo che detect_green_light avvenga solo dopo detect_red_light;
-
--- bugfix su questa situa:
--- state = TURNING
--- input = turn_completed
--- lane_position = RIGHT
--- sensors.obstacle_detected = TRUE
--- NON ROMPE LA SIM E LE LTL, è SOLO UN BUG BRUTTO DA VEDERE
 MODULE main
-VAR
-    state : {IDLE, SYSTEM_CHECK, DRIVING, OBSTACLE_DETECTED, STOPPED, PARKED, CHANGING_LANE, TURNING};
-    input : {
-        check_status, 
-        no_input, 
-        start, 
-        brake, 
-        resume, 
-        park, 
-        stop, 
-        turn,
-        change_lane, 
-        change_lane_completed, 
-        detect_obstacle, 
-        detect_stop_sign,
-        detect_red_light,
-        detect_green_light,
-        turn_completed
-    };
-    lane_position : {LEFT, CENTER, RIGHT, NaN};
-    sensors : Sensors(input);
 
+VAR
+state : {IDLE, SYSTEM_CHECK, DRIVING, OBSTACLE_DETECTED, STOPPED, PARKED, CHANGING_LANE, TURNING};
+input : {
+    check_status, 
+    no_input, 
+    start, 
+    brake, 
+    resume, 
+    park, 
+    stop, 
+    turn,
+    change_lane, 
+    change_lane_completed, 
+    detect_obstacle, 
+    detect_stop_sign,
+    detect_red_light,
+    detect_green_light,
+    turn_completed
+};
+lane_position : {LEFT, CENTER, RIGHT, NaN};
+sensors : Sensors(input);
+
+LTLSPEC G (state != NaN) --OK
 LTLSPEC G (state = DRIVING -> !sensors.obstacle_detected) --OK
 LTLSPEC G (state = DRIVING -> lane_position != NaN) --OK
-LTLSPEC G (state = TURNING -> F(state = DRIVING)) -- OK 
+LTLSPEC G (state = DRIVING -> !X(state = PARKED)) --OK
+LTLSPEC G (state = OBSTACLE_DETECTED -> F (state = STOPPED)) --OK
+LTLSPEC G ((state = CHANGING_LANE & input = change_lane_completed) -> X (state = DRIVING)) --OK
+LTLSPEC G ((state = STOPPED & input = resume & !sensors.obstacle_detected) -> X (state = DRIVING)) --OK
+LTLSPEC G ((state = TURNING & input = turn_completed & !sensors.obstacle_detected) -> X (state = DRIVING)) --OK
+LTLSPEC G (input = CHANGING_LANE -> !sensors.obstacle_detected) --OK
+LTLSPEC G (state = STOPPED & input = park -> X (state = PARKED)) --OK
+
+-- specification  G state != NaN  is true
+-- specification  G (state = DRIVING -> !sensors.obstacle_detected)  is true
+-- specification  G (state = DRIVING -> !( X state = PARKED))  is true
+-- specification  G (state = OBSTACLE_DETECTED ->  F state = STOPPED)  is true
+-- specification  G ((state = CHANGING_LANE & input = change_lane_completed) ->  X state = DRIVING)  is true
+-- specification  G (((state = STOPPED & input = resume) & !sensors.obstacle_detected) ->  X state = DRIVING)  is true
+-- specification  G (((state = TURNING & input = turn_completed) & !sensors.obstacle_detected) ->  X state = DRIVING)  is true
+-- specification  G (input = CHANGING_LANE -> !sensors.obstacle_detected)  is true
+-- specification  G ((state = STOPPED & input = park) ->  X state = PARKED)  is true
+-- specification  G (state = DRIVING -> lane_position != NaN)  is true
 
 ASSIGN
     init(state) := IDLE;
     init(input) := no_input; 
     init(lane_position) := NaN;
 
+    -- def of input which cases can have
+    next(input) :=
+        case
+            state = IDLE : {check_status, no_input};
+            state = SYSTEM_CHECK : {start};
+            state = DRIVING : {
+                turn,
+                change_lane, 
+                detect_stop_sign,
+                detect_obstacle, 
+                detect_red_light,  
+                no_input
+            };
+            state = TURNING : {turn_completed};
+            state = CHANGING_LANE : {change_lane_completed};
+            state = OBSTACLE_DETECTED : {brake};
+            state = STOPPED :
+                case
+                    sensors.red_light_detected : {detect_green_light, resume, park};
+                    TRUE : {resume, park};
+                esac;
+            state = PARKED : {stop, no_input};
+            TRUE : no_input;
+        esac;
+    
     next(state) :=
         case
             state = IDLE :
@@ -63,13 +93,14 @@ ASSIGN
                     input = turn : TURNING;
                     input = change_lane & !sensors.obstacle_detected : CHANGING_LANE;
                     input = detect_obstacle : OBSTACLE_DETECTED;
+                    input = detect_red_light : STOPPED;
                     input = detect_stop_sign : STOPPED;
                     TRUE : DRIVING;
                 esac;
 
             state = TURNING :
                 case
-                    input = turn_completed : DRIVING;
+                    input = turn_completed & !sensors.obstacle_detected : DRIVING;
                     input = detect_obstacle : OBSTACLE_DETECTED;
                     TRUE : TURNING;
                 esac;    
@@ -83,14 +114,14 @@ ASSIGN
             state = CHANGING_LANE :
                 case
                     input = change_lane_completed : DRIVING;
-                    input = detect_obstacle : OBSTACLE_DETECTED;
+                    input = detect_stop_sign : STOPPED;
                     TRUE : CHANGING_LANE;
                 esac;
             
             state = STOPPED :
                 case
                     input = resume & !sensors.obstacle_detected : DRIVING;
-                    input = detect_green_light : DRIVING;
+                    input = detect_green_light & !sensors.red_light_detected : DRIVING;
                     input = park : PARKED;
                     TRUE : STOPPED;
                 esac;
@@ -102,26 +133,6 @@ ASSIGN
                     TRUE : PARKED;
                 esac;
             TRUE : state;
-        esac;
-
-    next(input) :=
-        case
-            state = IDLE : {check_status, no_input};
-            state = SYSTEM_CHECK : {start};
-            state = DRIVING : {
-                change_lane,
-                turn, 
-                detect_stop_sign,
-                detect_obstacle, 
-                detect_red_light,
-                no_input
-            };
-            state = TURNING : {turn_completed, detect_obstacle, no_input};
-            state = CHANGING_LANE : {change_lane_completed, detect_obstacle, no_input};
-            state = OBSTACLE_DETECTED : {brake, no_input};
-            state = STOPPED : {detect_green_light, resume, park};
-            state = PARKED : {stop, resume, no_input};
-            TRUE : no_input;
         esac;
 
     next(lane_position) :=
@@ -149,13 +160,21 @@ ASSIGN
 MODULE Sensors(input)
 VAR
     obstacle_detected : boolean;
+    red_light_detected : boolean;
 ASSIGN
     init(obstacle_detected) := FALSE;
+    init(red_light_detected) := FALSE;
 
     next(obstacle_detected) := 
         case
             input = detect_obstacle : TRUE;
             input = resume : FALSE;
-            input = change_lane_completed : FALSE;
             TRUE :  FALSE;
+        esac;
+
+    next(red_light_detected) :=
+        case
+            input = detect_red_light : TRUE;
+            input = detect_green_light : FALSE;
+            TRUE : red_light_detected;
         esac;
