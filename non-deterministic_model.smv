@@ -1,8 +1,6 @@
 MODULE main
 
 VAR
-
-
 state : {
     IDLE,
     SYSTEM_CHECK, 
