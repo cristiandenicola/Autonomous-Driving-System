@@ -1,0 +1,173 @@
+MODULE main
+
+VAR
+    state : {IDLE, SYSTEM_CHECK, DRIVING, OBSTACLE_DETECTED, STOPPED, PARKED, CHANGING_LANE, TURNING};
+    input : {check_status, no_input, start, detect_obstacle, brake, resume, park, stop, change_lane, change_lane_completed, detect_stop_sign, detect_red_light, detect_green_light, turn, turn_completed};
+    lane_position : {LEFT, CENTER, RIGHT, NaN}; -- pool per change_lane
+    sensors : Sensors(input);
+    maneuver : Maneuver(input);
+    step : 0..12; -- contatore dei passi della sequenza, modulo 12
+    next_step : 0..12; -- variabile ausiliaria per il prossimo step
+
+LTLSPEC G (state = DRIVING -> !sensors.obstacle_detected) --OK
+LTLSPEC G (state = DRIVING -> lane_position != NaN) --OK
+LTLSPEC G (state = TURNING -> X(state = DRIVING)) --TODO: metterla a posto, per ora rotta.
+
+ASSIGN
+    init(state) := IDLE;
+    init(input) := no_input; 
+    init(lane_position) := NaN;
+    init(step) := 0;
+
+    next_step :=
+        case
+            step < 12 : step + 1;
+            TRUE : 0;
+        esac;
+
+    next(step) := next_step;
+
+    next(input) :=
+        case
+            step = 0 : check_status;
+            step = 1 : start;
+            step = 2 : detect_obstacle;
+            step = 3 : brake;
+            step = 4 : resume;
+            step = 5 : turn;
+            step = 6 : turn_completed;
+            step = 7 : detect_red_light;
+            step = 8 : detect_green_light;
+            step = 9 : change_lane;
+            step = 10 : change_lane_completed;
+            step = 11 : detect_stop_sign;
+            TRUE : no_input;
+        esac;
+
+    next(state) :=
+        case
+            state = IDLE :
+                case
+                    input = check_status : SYSTEM_CHECK;
+                    TRUE : IDLE;
+                esac;
+
+            state = SYSTEM_CHECK :
+                case
+                    input = start & !sensors.obstacle_detected : DRIVING;
+                    TRUE : SYSTEM_CHECK;
+                esac;
+
+            state = DRIVING :
+                case
+                    input = turn : TURNING;
+                    input = detect_stop_sign : STOPPED;
+                    input = detect_red_light & sensors.red_light_detected : STOPPED;
+                    input = change_lane & !sensors.obstacle_detected : CHANGING_LANE;
+                    input = detect_obstacle : OBSTACLE_DETECTED;
+                    TRUE : DRIVING;
+                esac;
+
+            state = TURNING :
+                case
+                    input = turn_completed : DRIVING;
+                    TRUE : TURNING;
+                esac;    
+            
+            state = OBSTACLE_DETECTED :
+                case
+                    input = brake & sensors.obstacle_detected : STOPPED;
+                    TRUE : OBSTACLE_DETECTED;
+                esac;
+
+             state = CHANGING_LANE :
+                case
+                    input = change_lane_completed : DRIVING;
+                    TRUE : CHANGING_LANE;
+                esac;
+            
+            state = STOPPED :
+                case
+                    input = resume & !sensors.obstacle_detected : DRIVING;
+                    input = detect_green_light & sensors.green_light_detected : DRIVING;
+                    input = park : PARKED;
+                    TRUE : STOPPED;
+                esac;
+
+            state = PARKED :
+                case
+                    input = stop : IDLE;
+                    TRUE : PARKED;
+                esac;
+        esac;
+
+    next(lane_position) :=
+        case
+            state = SYSTEM_CHECK & input = start & !sensors.obstacle_detected :
+                case
+                    lane_position = NaN : RIGHT;
+                    TRUE : lane_position;
+                esac;
+
+            state = CHANGING_LANE & input = change_lane_completed :
+                case
+                    lane_position = RIGHT : CENTER;
+                    lane_position = CENTER :
+                        case
+                            input = change_lane : RIGHT;
+                            TRUE : LEFT;
+                        esac;
+                    lane_position = LEFT : CENTER;
+                    TRUE : lane_position;
+                esac;
+
+            TRUE : lane_position;
+        esac;
+
+MODULE Sensors(input)
+VAR
+    obstacle_detected : boolean;
+    red_light_detected : boolean;
+    green_light_detected : boolean;
+ASSIGN
+    init(obstacle_detected) := FALSE;
+    init(red_light_detected) := FALSE;
+    init(green_light_detected) := FALSE;
+
+    next(red_light_detected) := 
+        case
+            input = detect_red_light : TRUE;
+            TRUE :  FALSE;
+        esac;
+    next(green_light_detected) := 
+        case
+            input = detect_green_light : TRUE;
+            TRUE :  FALSE;
+        esac;
+
+    next(obstacle_detected) := 
+        case
+            input = detect_obstacle : TRUE;
+            TRUE :  FALSE;
+        esac;
+
+MODULE Maneuver(input)
+VAR
+    lane_change_completed : boolean;
+    completed_turn : boolean;
+    
+ASSIGN
+    init(lane_change_completed) := FALSE;
+    init(completed_turn) := FALSE;
+
+    next(completed_turn) := 
+        case
+            input = turn_completed : TRUE;
+            TRUE :  FALSE;
+        esac;
+
+    next(lane_change_completed) := 
+        case
+            input = change_lane_completed : TRUE;
+            TRUE :  FALSE;
+        esac;

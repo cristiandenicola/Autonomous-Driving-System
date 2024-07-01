@@ -1,7 +1,21 @@
 MODULE main
 
 VAR
-state : {IDLE, SYSTEM_CHECK, DRIVING, OBSTACLE_DETECTED, STOPPED, PARKED, CHANGING_LANE, TURNING};
+
+
+state : {
+    IDLE,
+    SYSTEM_CHECK, 
+    DRIVING, 
+    OBSTACLE_DETECTED, 
+    STOP_SIGN_DETECTED,
+    SEMAPHORE_DETECTED,
+    STOPPED, 
+    PARKED, 
+    CHANGING_LANE, 
+    TURNING
+    };
+
 input : {
     check_status, 
     no_input, 
@@ -19,7 +33,13 @@ input : {
     detect_green_light,
     turn_completed
 };
-lane_position : {LEFT, CENTER, RIGHT, NaN};
+lane_position : {
+    LEFT, 
+    CENTER, 
+    RIGHT, 
+    NaN
+    };
+
 sensors : Sensors(input);
 
 LTLSPEC G (state != NaN) --OK
@@ -27,8 +47,12 @@ LTLSPEC G (state = DRIVING -> !sensors.obstacle_detected) --OK
 LTLSPEC G (state = DRIVING -> lane_position != NaN) --OK
 LTLSPEC G (state = DRIVING -> !X(state = PARKED)) --OK
 LTLSPEC G (state = OBSTACLE_DETECTED -> F (state = STOPPED)) --OK
+LTLSPEC G (state = STOP_SIGN_DETECTED -> F (state = STOPPED)) --OK
+LTLSPEC G (state = SEMAPHORE_DETECTED -> F (state = STOPPED)) --OK
 LTLSPEC G ((state = CHANGING_LANE & input = change_lane_completed) -> X (state = DRIVING)) --OK
 LTLSPEC G ((state = STOPPED & input = resume & !sensors.obstacle_detected) -> X (state = DRIVING)) --OK
+LTLSPEC G ((state = STOPPED & input = resume & !sensors.stop_detected) -> X (state = DRIVING))
+LTLSPEC G ((state = STOPPED & input = resume & !sensors.semaphore_detected) -> X (state = DRIVING))
 LTLSPEC G ((state = TURNING & input = turn_completed & !sensors.obstacle_detected) -> X (state = DRIVING)) --OK
 LTLSPEC G (input = CHANGING_LANE -> !sensors.obstacle_detected) --OK
 LTLSPEC G (state = STOPPED & input = park -> X (state = PARKED)) --OK
@@ -37,8 +61,12 @@ LTLSPEC G (state = STOPPED & input = park -> X (state = PARKED)) --OK
 -- specification  G (state = DRIVING -> !sensors.obstacle_detected)  is true
 -- specification  G (state = DRIVING -> !( X state = PARKED))  is true
 -- specification  G (state = OBSTACLE_DETECTED ->  F state = STOPPED)  is true
+-- specification  G (state = STOP_SIGN_DETECTED ->  F state = STOPPED)  is true
+-- specification  G (state = SEMAPHORE_DETECTED ->  F state = STOPPED)  is true
 -- specification  G ((state = CHANGING_LANE & input = change_lane_completed) ->  X state = DRIVING)  is true
 -- specification  G (((state = STOPPED & input = resume) & !sensors.obstacle_detected) ->  X state = DRIVING)  is true
+-- specification  G (((state = STOPPED & input = resume) & !sensors.stop_detected) ->  X state = DRIVING)  is true
+-- specification  G (((state = STOPPED & input = resume) & !sensors.semaphore_detected) ->  X state = DRIVING)  is true
 -- specification  G (((state = TURNING & input = turn_completed) & !sensors.obstacle_detected) ->  X state = DRIVING)  is true
 -- specification  G (input = CHANGING_LANE -> !sensors.obstacle_detected)  is true
 -- specification  G ((state = STOPPED & input = park) ->  X state = PARKED)  is true
@@ -52,25 +80,29 @@ ASSIGN
     -- def of input which cases can have
     next(input) :=
         case
-            state = IDLE : {check_status, no_input};
-            state = SYSTEM_CHECK : {start};
-            state = DRIVING : {
+            next(state) = IDLE : {check_status, no_input};
+            next(state) = SYSTEM_CHECK : {start};
+            next(state) = DRIVING : {
                 turn,
-                change_lane, 
+                change_lane,
                 detect_stop_sign,
-                detect_obstacle, 
+                detect_obstacle,
                 detect_red_light,  
                 no_input
             };
-            state = TURNING : {turn_completed};
-            state = CHANGING_LANE : {change_lane_completed};
-            state = OBSTACLE_DETECTED : {brake};
-            state = STOPPED :
+            next(state) = TURNING : {turn_completed};
+            next(state) = CHANGING_LANE : {change_lane_completed};
+            next(state) = OBSTACLE_DETECTED : {brake};
+            next(state) = STOP_SIGN_DETECTED : {brake};
+            next(state) = SEMAPHORE_DETECTED : {brake};
+            next(state) = STOPPED :
                 case
-                    sensors.red_light_detected : {detect_green_light, resume, park};
-                    TRUE : {resume, park};
+                    next(sensors.semaphore_detected) : {detect_green_light, no_input};
+                    sensors.stop_detected : {resume};
+                    sensors.obstacle_detected : {resume};
+                    TRUE : {park, resume};
                 esac;
-            state = PARKED : {stop, no_input};
+            next(state) = PARKED : {stop, no_input};
             TRUE : no_input;
         esac;
     
@@ -93,8 +125,8 @@ ASSIGN
                     input = turn : TURNING;
                     input = change_lane & !sensors.obstacle_detected : CHANGING_LANE;
                     input = detect_obstacle : OBSTACLE_DETECTED;
-                    input = detect_red_light : STOPPED;
-                    input = detect_stop_sign : STOPPED;
+                    input = detect_red_light : SEMAPHORE_DETECTED;
+                    input = detect_stop_sign : STOP_SIGN_DETECTED;
                     TRUE : DRIVING;
                 esac;
 
@@ -111,17 +143,29 @@ ASSIGN
                     TRUE : STOPPED;
                 esac;
 
+            state = STOP_SIGN_DETECTED :
+                case
+                    input = brake & sensors.stop_detected : STOPPED;
+                    TRUE : STOPPED;
+                esac;
+
+            state = SEMAPHORE_DETECTED :
+                case
+                    input = brake & sensors.semaphore_detected : STOPPED;
+                    TRUE : STOPPED;
+                esac;
+
             state = CHANGING_LANE :
                 case
                     input = change_lane_completed : DRIVING;
-                    input = detect_stop_sign : STOPPED;
                     TRUE : CHANGING_LANE;
                 esac;
             
             state = STOPPED :
                 case
                     input = resume & !sensors.obstacle_detected : DRIVING;
-                    input = detect_green_light & !sensors.red_light_detected : DRIVING;
+                    input = resume & !sensors.stop_detected : DRIVING;
+                    input = detect_green_light : DRIVING;
                     input = park : PARKED;
                     TRUE : STOPPED;
                 esac;
@@ -159,22 +203,29 @@ ASSIGN
 
 MODULE Sensors(input)
 VAR
+    stop_detected: boolean;
     obstacle_detected : boolean;
-    red_light_detected : boolean;
+    semaphore_detected : boolean;
 ASSIGN
     init(obstacle_detected) := FALSE;
-    init(red_light_detected) := FALSE;
+    init(semaphore_detected) := FALSE;
+    init(stop_detected) := FALSE;
+
+    next(stop_detected) := 
+        case
+            input = detect_stop_sign  : TRUE;
+            TRUE :  FALSE;
+        esac;
 
     next(obstacle_detected) := 
         case
             input = detect_obstacle : TRUE;
-            input = resume : FALSE;
             TRUE :  FALSE;
         esac;
 
-    next(red_light_detected) :=
+    next(semaphore_detected) :=
         case
             input = detect_red_light : TRUE;
             input = detect_green_light : FALSE;
-            TRUE : red_light_detected;
+            TRUE : semaphore_detected;
         esac;
