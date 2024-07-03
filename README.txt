@@ -1,22 +1,25 @@
 
-# NuSMV Project: Autonomous Driving System
+NuSMV Project: Symbolic Model Verification for Autonomous Driving Systems
 
-## Descrizione del Progetto
+Project Description
 
-Questo progetto utilizza NuSMV, un verificatore di modelli simbolici, per la verifica formale di sistemi finiti e infiniti. NuSMV permette di verificare che un modello soddisfi specifiche proprietà espresse in logiche temporali, garantendo così la sicurezza e l'affidabilità dei sistemi.
+This project leverages NuSMV, a symbolic model checker, for the formal verification of finite and infinite systems. Specifically, we focus on the simulation and verification of an autonomous driving system. NuSMV allows us to verify that a model satisfies specific properties expressed in temporal logics, ensuring the safety and reliability of the autonomous driving system.
 
-## Contenuto del Progetto
+Project Contents
 
-Il progetto include i seguenti file:
+The project includes the following files:
 
-- `Deterministic_model.smv`: Modello deterministico per la verifica.
-- `non-deterministic_model.smv`: Modello non deterministico per la verifica.
+Deterministic_model.smv: This file contains a deterministic model of the autonomous driving system. It is used to demonstrate how NuSMV can verify properties in a deterministic environment.
+non-deterministic_model.smv: This file contains a non-deterministic model of the autonomous driving system. It is used to demonstrate how NuSMV can handle uncertainties and variable behaviors within the system.
+Requirements
 
-## Funzionalità di NuSMV
+NuSMV: Ensure that NuSMV is installed on your machine. You can download it from the official NuSMV website.
 
-NuSMV supporta la verifica di proprietà espresse in:
+NuSMV Features
 
-- LTL (Linear Temporal Logic)
-- CTL (Computation Tree Logic)
+NuSMV supports the verification of properties expressed in:
 
-Le funzionalità principali includono il supporto per modelli deterministici e non deterministici e la capacità di gestire grandi modelli grazie a tecniche di rappresentazione simbolica come i BDD (Binary Decision Diagrams).
+LTL (Linear Temporal Logic)
+CTL (Computation Tree Logic)
+The main features include support for deterministic and non-deterministic models and the ability to handle large models using symbolic representation techniques such as BDD (Binary Decision Diagrams).
+
